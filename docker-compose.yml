@@ -1,0 +1,50 @@
+version: "3.7"
+
+services:
+  mainapi:
+    image: mainapi
+    build:
+      context: ./mainapi
+      dockerfile: Dockerfile
+    volumes:
+      - ./mainapi:/responder
+    ports:
+      - 80:80
+    environment:
+      PORT: 80
+    env_file: ./env/.env.local
+    command: python3 api.py
+    depends_on:
+      - crudapi
+      - spacyapi
+  database:
+    restart: always
+    image: postgres:latest
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file: ./env/.env.local
+  crudapi:
+    build: ./crudapi
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./crudapi:/django
+    ports:
+      - "8000:8000"
+    env_file: ./env/.env.local
+    depends_on:
+      - database
+  spacyapi:
+    build: ./microservices/spacyapi
+    command: uvicorn app.api:app --reload --host 0.0.0.0 --port 8080
+    volumes:
+      - ./microservices/spacyapi:/fastapi
+    ports:
+      - 8080:8080
+    env_file: ./env/.env.local
+    environment:
+      PORT: 8080
+      APP_MODULE: app.api:app
+      WEB_CONCURRENCY: 2
+
+volumes:
+  pgdata:
